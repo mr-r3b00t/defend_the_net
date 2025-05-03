@@ -1,4 +1,43 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -334,7 +373,7 @@
             { id: 5, label: 'Firewall', originalLabel: 'Firewall', group: 'firewall', services: [], iocs: [], exploitable: false, hardened: false, isolated: false, compromised: false, required_tool: 'Firewall Exploit', contains_tools: [], color: { background: '#00FF00', border: '#00CC00' }, actionInProgress: false, hidden: false },
             { id: 6, label: '', originalLabel: 'Domain Controller 1', group: 'internal', services: ['RDP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'DC Credential', contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false, hidden: true },
             { id: 7, label: '', originalLabel: 'Domain Controller 2', group: 'internal', services: ['RDP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'DC Credential', contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false, hidden: true },
-            { id: 8, label: '', originalLabel: 'File Server', group: 'internal', services: [], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: ['User Credential', 'DC Credential'], contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false, hidden: true },
+            { id: 8, label: '', originalLabel: 'File Server', group: 'internal', services: [], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: ['DC Credential'], contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false, hidden: true },
             { id: 9, label: '', originalLabel: 'HR Web Server', group: 'internal', services: ['HTTP', 'RDP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'HR Credential', contains_tools: ['DB Credential'], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false, hidden: true },
             { id: 10, label: '', originalLabel: 'HR Database Server', group: 'internal', services: [], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'DB Credential', contains_tools: ['User Credential'], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false, hidden: true },
             { id: 11, label: '', originalLabel: 'ERP', group: 'internal', services: ['HTTP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'DC Credential', contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false, hidden: true },
@@ -422,7 +461,20 @@
             scannedNodes: [],
             actionDelay: 10000, // 10 seconds before first action
             actionIntervalMin: 1250, // 1.25 seconds min between actions
-            actionIntervalMax: 2500 // 2.5 seconds max
+            actionIntervalMax: 2500, // 2.5 seconds max
+            attackSequence: [
+                { nodeId: 16, action: 'scan' },
+                { nodeId: 16, action: 'exploit' },
+                { nodeId: 4, action: 'scan' },
+                { nodeId: 4, action: 'exploit' },
+                { nodeId: 13, action: 'scan' },
+                { nodeId: 13, action: 'exploit' },
+                { nodeId: 14, action: 'scan' },
+                { nodeId: 14, action: 'exploit' },
+                { nodeId: 8, action: 'scan' },
+                { nodeId: 8, action: 'exploit' }
+            ],
+            sequenceIndex: 0
         };
 
         // IOCs
@@ -516,12 +568,24 @@
                     showWinModal();
                     return;
                 }
-                const targetId = reachableNodes[Math.floor(Math.random() * reachableNodes.length)];
-                const node = nodes.get(targetId);
-                let action = 'scan';
-                if (attacker.scannedNodes.includes(targetId)) {
-                    action = Math.random() < 0.7 ? 'exploit' : 'scan';
+
+                // Check if player is inactive (no scans, hardens, or isolates)
+                const isPlayerInactive = player.scannedNodes.length === 0 && player.hardenedNodes.length === 0 && player.isolatedNodes.length === 0;
+                let targetId, action;
+
+                if (isPlayerInactive && attacker.sequenceIndex < attacker.attackSequence.length) {
+                    // Follow deterministic attack sequence
+                    const step = attacker.attackSequence[attacker.sequenceIndex];
+                    targetId = step.nodeId;
+                    action = step.action;
+                    attacker.sequenceIndex++;
+                } else {
+                    // Fall back to random behavior
+                    targetId = reachableNodes[Math.floor(Math.random() * reachableNodes.length)];
+                    action = attacker.scannedNodes.includes(targetId) ? (Math.random() < 0.7 ? 'exploit' : 'scan') : 'scan';
                 }
+
+                const node = nodes.get(targetId);
                 switch (action) {
                     case 'scan':
                         attacker.scannedNodes.push(targetId);
@@ -532,6 +596,7 @@
                         const requiredTools = Array.isArray(node.required_tool) ? node.required_tool : [node.required_tool];
                         if (requiredTools.length > 0 && !requiredTools.some(tool => tool === null || attacker.tools.includes(tool))) {
                             addToLog(`Attacker failed to exploit ${node.originalLabel} (Node ${targetId}): Missing required tool (${requiredTools.join(' or ')}).`);
+                            if (isPlayerInactive) attacker.sequenceIndex--; // Retry this step
                             return;
                         }
                         node.compromised = true;
@@ -1014,5 +1079,6 @@
             }
         }
     </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93a0df62ba3fb047',t:'MTc0NjI4Njk5MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
