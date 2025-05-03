@@ -457,9 +457,9 @@
             compromisedNodes: [1],
             reachableNodes: [2, 3, 4, 16],
             scannedNodes: [],
-            actionDelay: 30000, // 30 seconds before first action
-            actionIntervalMin: 15000, // 15 seconds min between actions
-            actionIntervalMax: 30000 // 30 seconds max
+            actionDelay: 10000, // 10 seconds before first action
+            actionIntervalMin: 5000, // 5 seconds min between actions
+            actionIntervalMax: 10000 // 10 seconds max
         };
 
         // IOCs
@@ -517,10 +517,10 @@
                 playBackgroundAudio();
                 assignIOCs();
                 addToLog('Game started. You are at the Firewall. Objective: Prevent the attacker from compromising the File Server for 5 minutes.');
-                addToLog('Only the Firewall and Internet are visible. Scan the Firewall (costs 5 points, takes 5 seconds) to reveal DMZ and internal network nodes. Harden servers (costs 10 points, earns 20, takes 10 seconds, turns green; Firewall and File Server take 30 seconds and fail), or isolate compromised nodes (costs 15 points, earns 30, instant, turns gray).');
+                addToLog('Only the Firewall and Internet are visible. Scan the Firewall (costs 5 points, takes 5 seconds) to reveal DMZ and internal network nodes. You have 10 seconds to prepare before the attacker begins. Attacker scans show nodes with a red border. Harden servers (costs 10 points, earns 20, takes 10 seconds, turns green; Firewall, File Server, and Helpdesk take 30 seconds and fail, with Helpdesk failing due to supplier contract scope). Isolate compromised nodes (costs 15 points, earns 30, instant, turns gray).');
                 addToLog(`Initial points: ${player.points}.`);
                 network.fit();
-                // Start attacker after 30 seconds
+                // Start attacker after 10 seconds
                 setTimeout(startAttacker, attacker.actionDelay);
                 // Check for win condition
                 setTimeout(checkWinCondition, player.gameDuration * 1000);
@@ -562,8 +562,8 @@
                 switch (action) {
                     case 'scan':
                         attacker.scannedNodes.push(targetId);
-                        nodes.update({ id: targetId, label: node.originalLabel, color: { background: '#00FFFF', border: '#00CCFF' }, hidden: false });
-                        addToLog(`Attacker scanned ${node.originalLabel} (Node ${targetId}).`);
+                        nodes.update({ id: targetId, label: node.originalLabel, color: { background: node.color.background, border: '#FF0000' }, hidden: false });
+                        addToLog(`Attacker scanned ${node.originalLabel} (Node ${targetId}). Node now has a red border.`);
                         break;
                     case 'exploit':
                         if (node.required_tool && !attacker.tools.includes(node.required_tool)) {
@@ -597,6 +597,8 @@
                             ]);
                             attacker.reachableNodes.push(2, 3, 16);
                             addToLog('Attacker compromised VPN Server, revealing DMZ nodes.');
+                            // Ensure internal nodes are reachable
+                            updateAttackerReachableNodes(4);
                         }
                         if (targetId === 8) {
                             showLoseModal();
@@ -941,8 +943,8 @@
                             closeMenu();
                         } else {
                             nodes.update({ id: nodeId, actionInProgress: true });
-                            if (nodeId === 5 || nodeId === 8) {
-                                const targetName = nodeId === 5 ? 'Firewall' : 'File Server';
+                            if (nodeId === 5 || nodeId === 8 || nodeId === 16) {
+                                const targetName = nodeId === 5 ? 'Firewall' : nodeId === 8 ? 'File Server' : 'Helpdesk';
                                 message = `Hardening ${targetName}... (30 seconds)`;
                                 addToLog(message);
                                 closeMenu();
@@ -952,7 +954,11 @@
                                             console.error('Isolate audio playback failed:', error);
                                         });
                                         applyNodeGlow(nodeId, '#FFFF00');
-                                        message = `Hardening failed for ${targetName}. Business denied the change.`;
+                                        if (nodeId === 16) {
+                                            message = `Hardening failed for ${targetName}. The supplier said this is out of scope of the contract.`;
+                                        } else {
+                                            message = `Hardening failed for ${targetName}. Business denied the change.`;
+                                        }
                                         addToLog(message);
                                         nodes.update({ id: nodeId, actionInProgress: false });
                                     } catch (error) {
@@ -970,7 +976,7 @@
                                         node.hardened = true;
                                         player.points -= 10;
                                         player.points += 20;
-                                        nodes.update({ id: Aucun, color: { background: '#00FF00', border: '#00CC00' }, actionInProgress: false });
+                                        nodes.update({ id: nodeId, color: { background: '#00FF00', border: '#00CC00' }, actionInProgress: false });
                                         hardenAudio.play().catch(error => {
                                             console.error('Harden audio playback failed:', error);
                                         });
