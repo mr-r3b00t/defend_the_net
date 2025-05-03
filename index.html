@@ -533,11 +533,6 @@
                     const node = nodes.get(id);
                     return !node.hardened && !node.isolated && !node.compromised;
                 });
-                if (reachableNodes.length === 0) {
-                    addToLog('Attacker has no reachable nodes to target. You win!');
-                    showWinModal();
-                    return;
-                }
 
                 // Check if player is inactive (no scans, hardens, or isolates)
                 const isPlayerInactive = player.scannedNodes.length === 0 && player.hardenedNodes.length === 0 && player.isolatedNodes.length === 0;
@@ -549,10 +544,27 @@
                     targetId = step.nodeId;
                     action = step.action;
                     attacker.sequenceIndex++;
-                } else {
-                    // Fall back to random behavior
+                    // Reset sequence index if it reaches the end to keep attacking
+                    if (attacker.sequenceIndex >= attacker.attackSequence.length) {
+                        attacker.sequenceIndex = 0;
+                    }
+                } else if (reachableNodes.length > 0) {
+                    // Fall back to random behavior if there are reachable nodes
                     targetId = reachableNodes[Math.floor(Math.random() * reachableNodes.length)];
                     action = attacker.scannedNodes.includes(targetId) ? (Math.random() < 0.7 ? 'exploit' : 'scan') : 'scan';
+                } else {
+                    // No reachable nodes, but continue by scanning a random non-compromised, non-isolated node if available
+                    const availableNodes = nodes.get().filter(node => !node.compromised && !node.isolated && !node.hardened && node.id !== 1 && node.id !== 5);
+                    if (availableNodes.length > 0) {
+                        targetId = availableNodes[Math.floor(Math.random() * availableNodes.length)].id;
+                        action = 'scan';
+                    } else {
+                        // If no nodes are available, log and schedule next action
+                        addToLog('Attacker has no viable targets to scan or exploit.');
+                        const nextActionDelay = attacker.actionIntervalMin + Math.random() * (attacker.actionIntervalMax - attacker.actionIntervalMin);
+                        setTimeout(performAttackerAction, nextActionDelay);
+                        return;
+                    }
                 }
 
                 const node = nodes.get(targetId);
@@ -567,7 +579,7 @@
                         if (requiredTools.length > 0 && !requiredTools.some(tool => tool === null || attacker.tools.includes(tool))) {
                             addToLog(`Attacker failed to exploit ${node.originalLabel} (Node ${targetId}): Missing required tool (${requiredTools.join(' or ')}).`);
                             if (isPlayerInactive) attacker.sequenceIndex--; // Retry this step
-                            return;
+                            break;
                         }
                         node.compromised = true;
                         attacker.compromisedNodes.push(targetId);
@@ -871,7 +883,6 @@
                                             edges.update([
                                                 { id: '1-2', hidden: false },
                                                 { id: '1-3', hidden: false },
-                                                { id: '1-4', hidden: false },
                                                 { id: '1-16', hidden: false },
                                                 { id: '2-5', hidden: false },
                                                 { id: '3-5', hidden: false },
@@ -1052,5 +1063,6 @@
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93a0df62ba3fb047',t:'MTc0NjI4Njk5MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93a1016d3bbf455a',t:'MTc0NjI4ODM4Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93a1280bc9b4bf72',t:'MTc0NjI4OTk2OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
