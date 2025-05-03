@@ -304,6 +304,10 @@
         scanAudio.volume = 0.7;
         const isolateAudio = new Audio('/defend_the_net/assets/deflect.mp3');
         isolateAudio.volume = 0.7;
+        const winAudio = new Audio('/defend_the_net/assets/win.mp3');
+        winAudio.volume = 0.7;
+        const failAudio = new Audio('/defend_the_net/assets/fail.mp3');
+        failAudio.volume = 0.7;
 
         function playBackgroundAudio() {
             backgroundAudio.play().catch(error => {
@@ -662,6 +666,11 @@
                     clearInterval(pointsInterval);
                     pointsInterval = null;
                 }
+                // Play win sound
+                winAudio.play().catch(error => {
+                    console.error('Win audio playback failed:', error);
+                    addToLog('Failed to play win sound due to an error.');
+                });
                 var modal = document.getElementById('win-modal');
                 var timeDisplay = document.getElementById('time-survived');
                 var pointsDisplay = document.getElementById('points');
@@ -687,6 +696,11 @@
                     clearInterval(pointsInterval);
                     pointsInterval = null;
                 }
+                // Play fail sound
+                failAudio.play().catch(error => {
+                    console.error('Fail audio playback failed:', error);
+                    addToLog('Failed to play fail sound due to an error.');
+                });
                 var modal = document.getElementById('lose-modal');
                 var timeDisplay = document.getElementById('lose-time-survived');
                 var pointsDisplay = document.getElementById('lose-points');
