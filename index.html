@@ -1,0 +1,1039 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defend the Net</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
+            background: #0A0F1C;
+            color: #00D4FF;
+            background-image: linear-gradient(rgba(0, 212, 255, 0.1) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 70% 30%;
+            height: 100%;
+            width: 100%;
+        }
+        #mynetwork {
+            border-right: 2px solid #00D4FF;
+            overflow: hidden;
+            background: #0A0F1C;
+            position: relative;
+            background-image: linear-gradient(45deg, rgba(0, 212, 255, 0.2) 1px, transparent 1px),
+                            linear-gradient(-45deg, rgba(0, 212, 255, 0.2) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        #mynetwork::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(0, 212, 255, 0.1), transparent 70%);
+            pointer-events: none;
+        }
+        #logo {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 200px;
+            height: auto;
+            z-index: 500;
+            pointer-events: none;
+        }
+        #log {
+            padding: 1rem;
+            background: rgba(10, 15, 28, 0.8);
+            overflow-y: auto;
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+            border-left: 2px solid #FF4800;
+        }
+        #log h3 {
+            margin: 0 0 1rem;
+            font-size: 1.5rem;
+            color: #00D4FF;
+            text-shadow: 0 0 5px #00D4FF;
+            flex-shrink: 0;
+        }
+        #log-content {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        #log p {
+            margin: 0.5rem 0;
+            font-size: 1rem;
+            line-height: 1.5;
+            color: #FFFFFF;
+            text-shadow: 0 0 3px #00D4FF;
+        }
+        #menu {
+            position: fixed;
+            background: rgba(10, 15, 28, 0.9);
+            padding: 1rem;
+            border: 2px solid #00D4FF;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 0 10px #00D4FF;
+        }
+        #menu button, #controls button {
+            display: block;
+            margin: 0.5rem 0;
+            background: transparent;
+            color: #00D4FF;
+            border: 1px solid #00D4FF;
+            padding: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-family: 'Orbitron', sans-serif;
+            width: 100%;
+            text-align: left;
+            transition: all 0.3s ease;
+        }
+        #menu button:hover, #controls button:hover {
+            background: #00D4FF;
+            color: #0A0F1C;
+            box-shadow: 0 0 10px #00D4FF;
+        }
+        #menu button.hidden {
+            display: none;
+        }
+        #controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 15, 28, 0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: rgba(10, 15, 28, 0.9);
+            padding: 2rem;
+            border: 2px solid #FF4800;
+            border-radius: 5px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 0 15px #FF4800;
+        }
+        .modal-content h2 {
+            margin: 0 0 1rem;
+            font-size: 2rem;
+            color: #00D4FF;
+            text-shadow: 0 0 5px #00D4FF;
+        }
+        .modal-content p {
+            margin: 0.5rem 0;
+            font-size: 1.2rem;
+            color: #FFFFFF;
+            text-shadow: 0 0 3px #00D4FF;
+        }
+        .modal-content .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .modal-content button {
+            background: transparent;
+            color: #00D4FF;
+            border: 1px solid #00D4FF;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-family: 'Orbitron', sans-serif;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        .modal-content button:hover {
+            background: #00D4FF;
+            color: #0A0F1C;
+            box-shadow: 0 0 10px #00D4FF;
+        }
+        .modal-content .tweet-button {
+            border-color: #FF4800;
+            color: #FF4800;
+        }
+        .modal-content .tweet-button:hover {
+            background: #FF4800;
+            color: #0A0F1C;
+            box-shadow: 0 0 10px #FF4800;
+        }
+        .modal-content .start-button {
+            border-color: #00D4FF;
+            color: #00D4FF;
+        }
+        .modal-content .start-button:hover {
+            background: #00D4FF;
+            color: #0A0F1C;
+            box-shadow: 0 0 10px #00D4FF;
+        }
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 100%;
+                grid-template-rows: 60% 40%;
+            }
+            #mynetwork {
+                border-right: none;
+                border-bottom: 2px solid #00D4FF;
+            }
+            #logo {
+                max-width: 150px;
+                top: 5px;
+            }
+            #log {
+                max-height: 40vh;
+                border-left: none;
+                border-top: 2px solid #FF4800;
+            }
+            #controls {
+                top: 5px;
+                right: 5px;
+            }
+            .modal-content {
+                padding: 1.5rem;
+            }
+            .modal-content h2 {
+                font-size: 1.5rem;
+            }
+            .modal-content p {
+                font-size: 1rem;
+            }
+            .modal-content .button-container {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+    <script src="https://unpkg.com/vis-network@9.1.0/standalone/umd/vis-network.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div id="mynetwork">
+            <img id="logo" src="https://www.pwndefend.com/wp-content/uploads/2020/12/cropped-pwndefend.png" alt="PwnDefend Logo">
+        </div>
+        <div id="log">
+            <h3>Defense Log</h3>
+            <div id="log-content"></div>
+        </div>
+    </div>
+    <div id="controls">
+        <button onclick="toggleNetworkStatus()" aria-label="View network status">Network Status</button>
+    </div>
+    <div id="menu">
+        <button onclick="performAction('scan')" aria-label="Scan node for IOCs">Scan</button>
+        <button id="harden-button" class="hidden" onclick="performAction('harden')" aria-label="Harden node to prevent compromise">Harden</button>
+        <button id="isolate-button" class="hidden" onclick="performAction('isolate')" aria-label="Isolate compromised node">Isolate</button>
+        <button onclick="closeMenu()" aria-label="Close action menu">Close</button>
+    </div>
+    <div id="intro-modal" class="modal" style="display: flex;">
+        <div class="modal-content">
+            <h2>Defend the Net!</h2>
+            <button class="start-button" onclick="startGame()">START</button>
+        </div>
+    </div>
+    <div id="win-modal" class="modal">
+        <div class="modal-content">
+            <h2>Network Secured</h2>
+            <p>File Server Protected</p>
+            <p id="time-survived">Time Survived: --:--</p>
+            <p id="points">Defense Points: 0</p>
+            <div class="button-container">
+                <button onclick="restartGame()">Restart</button>
+                <button class="tweet-button" id="tweet-button">Share Score</button>
+            </div>
+        </div>
+    </div>
+    <div id="lose-modal" class="modal">
+        <div class="modal-content">
+            <h2>Network Breached</h2>
+            <p>File Server Compromised</p>
+            <p id="lose-time-survived">Time Survived: --:--</p>
+            <p id="lose-points">Defense Points: 0</p>
+            <div class="button-container">
+                <button onclick="restartGame()">Restart</button>
+                <button class="tweet-button" id="lose-tweet-button">Share Score</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Audio setup
+        const backgroundAudio = new Audio('/attack_the_net/assets/background.mp3');
+        backgroundAudio.loop = true;
+        backgroundAudio.volume = 0.3;
+        const selectAudio = new Audio('/attack_the_net/assets/select.mp3');
+        selectAudio.volume = 0.7;
+        const hardenAudio = new Audio('/attack_the_net/assets/exploit.mp3');
+        hardenAudio.volume = 0.9;
+        const scanAudio = new Audio('/attack_the_net/assets/scan.mp3');
+        scanAudio.volume = 0.7;
+        const isolateAudio = new Audio('/attack_the_net/assets/deflect.mp3');
+        isolateAudio.volume = 0.7;
+
+        function playBackgroundAudio() {
+            backgroundAudio.play().catch(error => {
+                console.error('Background audio playback failed:', error);
+            });
+        }
+
+        // Apply temporary glow effect to a node
+        function applyNodeGlow(nodeId, color) {
+            try {
+                const originalNode = nodes.get(nodeId);
+                const glowColor = `rgba(${parseInt(color.slice(1,3), 16)}, ${parseInt(color.slice(3,5), 16)}, ${parseInt(color.slice(5,7), 16)}, 1.0)`;
+                nodes.update({
+                    id: nodeId,
+                    shadow: { enabled: true, color: glowColor, size: 20, x: 0, y: 0 }
+                });
+                network.redraw();
+                setTimeout(() => {
+                    nodes.update({
+                        id: nodeId,
+                        shadow: originalNode.shadow
+                    });
+                    network.redraw();
+                }, 1500);
+            } catch (error) {
+                console.error(`Error applying glow to node ${nodeId}:`, error);
+            }
+        }
+
+        // Define nodes with defensive properties and required_tool/contains_tools
+        var nodes = new vis.DataSet([
+            { id: 1, label: 'Internet', originalLabel: 'Internet', group: 'internet', compromised: true, exploitable: false, required_tool: null, contains_tools: ['Web Exploit'], color: { background: '#FF4800', border: '#CC3700' }, iocs: [], actionInProgress: false },
+            { id: 2, label: '', originalLabel: 'Web Server', group: 'dmz', services: ['HTTP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'Web Exploit', contains_tools: ['Email Credential'], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 3, label: '', originalLabel: 'Email Server', group: 'dmz', services: ['SMTP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'Email Credential', contains_tools: ['VPN Credential'], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 4, label: '', originalLabel: 'VPN Server', group: 'dmz', services: ['VPN'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'VPN Credential', contains_tools: ['Firewall Exploit'], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 5, label: 'Firewall', originalLabel: 'Firewall', group: 'firewall', services: [], iocs: [], exploitable: false, hardened: true, isolated: false, compromised: false, required_tool: 'Firewall Exploit', contains_tools: [], color: { background: '#00FF00', border: '#00CC00' }, actionInProgress: false },
+            { id: 6, label: '', originalLabel: 'Domain Controller 1', group: 'internal', services: ['RDP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'DC Credential', contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 7, label: '', originalLabel: 'Domain Controller 2', group: 'internal', services: ['RDP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'DC Credential', contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 8, label: '', originalLabel: 'File Server', group: 'internal', services: [], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'User Credential', contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 9, label: '', originalLabel: 'HR Web Server', group: 'internal', services: ['HTTP', 'RDP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'HR Credential', contains_tools: ['DB Credential'], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 10, label: '', originalLabel: 'HR Database Server', group: 'internal', services: [], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'DB Credential', contains_tools: ['User Credential'], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 11, label: '', originalLabel: 'ERP', group: 'internal', services: ['HTTP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'DC Credential', contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 12, label: '', originalLabel: 'CRM', group: 'internal', services: ['HTTP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'DC Credential', contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 13, label: '', originalLabel: 'Workstation', group: 'internal', services: ['RDP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'VPN Credential', contains_tools: ['Admin Credential'], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 14, label: '', originalLabel: 'IT Admin Machine', group: 'internal', services: ['RDP'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'Admin Credential', contains_tools: ['DC Credential'], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 15, label: '', originalLabel: 'Backup Server', group: 'internal', services: [], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'DC Credential', contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 16, label: '', originalLabel: 'Helpdesk', group: 'dmz', services: ['Web'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: null, contains_tools: ['VPN Credential'], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 17, label: '', originalLabel: 'Hypervisor', group: 'internal', services: ['VMware API'], iocs: [], exploitable: true, hardened: false, isolated: false, compromised: false, required_tool: 'Admin Credential', contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false },
+            { id: 18, label: '', originalLabel: 'Backup Data', group: 'internal', services: [], iocs: [], exploitable: false, hardened: false, isolated: false, compromised: false, required_tool: null, contains_tools: [], color: { background: '#00D4FF', border: '#0099CC' }, actionInProgress: false }
+        ]);
+
+        // Define edges
+        var edges = new vis.DataSet([
+            { id: '1-2', from: 1, to: 2, traversable: true, hidden: true },
+            { id: '1-3', from: 1, to: 3, traversable: true, hidden: true },
+            { id: '1-4', from: 1, to: 4, traversable: true, hidden: true },
+            { id: '1-16', from: 1, to: 16, traversable: true, hidden: true },
+            { id: '2-5', from: 2, to: 5, traversable: false, hidden: true },
+            { id: '3-5', from: 3, to: 5, traversable: false, hidden: true },
+            { id: '4-5', from: 4, to: 5, traversable: true, hidden: true },
+            { id: '5-6', from: 5, to: 6, traversable: true },
+            { id: '5-7', from: 5, to: 7, traversable: true },
+            { id: '5-8', from: 5, to: 8, traversable: true },
+            { id: '5-9', from: 5, to: 9, traversable: true },
+            { id: '5-11', from: 5, to: 11, traversable: true },
+            { id: '5-12', from: 5, to: 12, traversable: true },
+            { id: '5-13', from: 5, to: 13, traversable: true },
+            { id: '5-14', from: 5, to: 14, traversable: true },
+            { id: '5-15', from: 5, to: 15, traversable: true },
+            { id: '9-10', from: 9, to: 10, traversable: true },
+            { id: '14-17', from: 14, to: 17, traversable: true },
+            { id: '15-18', from: 15, to: 18, traversable: true }
+        ]);
+
+        // Initialize network
+        var container = document.getElementById('mynetwork');
+        var data = { nodes: nodes, edges: edges };
+        var options = {
+            nodes: {
+                shape: 'dot',
+                size: 15,
+                font: { size: 12, color: '#FFFFFF', face: 'Orbitron' },
+                borderWidth: 2,
+                shadow: { enabled: true, color: 'rgba(0, 212, 255, 0.5)', size: 5, x: 0, y: 0 }
+            },
+            groups: {
+                internet: { color: { background: '#FF4800', border: '#CC3700' }, shadow: { color: '#FF4800' } },
+                dmz: { shadow: { color: '#00D4FF' } },
+                firewall: { color: { background: '#00FF00', border: '#00CC00' }, shadow: { color: '#00FF00' } },
+                internal: { shadow: { color: '#FF4800' } }
+            },
+            edges: {
+                color: { color: '#00D4FF', highlight: '#FF4800' },
+                width: 2,
+                dashes: [5, 5],
+                shadow: { enabled: true, color: 'rgba(0, 212, 255, 0.5)', size: 3 }
+            },
+            interaction: { hover: true, zoomView: true, dragView: true },
+            physics: { enabled: true, stabilization: { iterations: 50 }, barnesHut: { gravitationalConstant: -2000, springLength: 80 } },
+            layout: { improvedLayout: true }
+        };
+        var network = new vis.Network(container, data, options);
+        network.fit();
+
+        // Player state
+        var player = {
+            position: 5,
+            scannedNodes: [5],
+            hardenedNodes: [5],
+            isolatedNodes: [],
+            points: 100,
+            startTime: null,
+            gameDuration: 5 * 60 // 5 minutes in seconds
+        };
+
+        // Attacker state
+        var attacker = {
+            position: 1,
+            tools: ['Web Exploit'],
+            compromisedNodes: [1],
+            reachableNodes: [2, 3, 4, 16],
+            scannedNodes: [],
+            actionDelay: 30000, // 30 seconds before first action
+            actionIntervalMin: 15000, // 15 seconds min between actions
+            actionIntervalMax: 30000 // 30 seconds max
+        };
+
+        // IOCs
+        const possibleIOCs = ['Backdoor', 'Malware', 'Unauthorized Credential', 'Suspicious Service'];
+        function assignIOCs() {
+            try {
+                nodes.get().forEach(node => {
+                    if (node.id !== 1 && node.id !== 5) { // Exclude Internet and Firewall
+                        const numIOCs = Math.random() < 0.5 ? 0 : Math.floor(Math.random() * 3); // 0–2 IOCs
+                        const iocs = [];
+                        for (let i = 0; i < numIOCs; i++) {
+                            const iocName = possibleIOCs[Math.floor(Math.random() * possibleIOCs.length)];
+                            iocs.push({ name: iocName, found: false });
+                        }
+                        node.iocs = iocs;
+                    }
+                });
+                console.log('IOCs assigned:', nodes.get().map(n => ({ id: n.id, iocs: n.iocs })));
+            } catch (error) {
+                console.error('Error assigning IOCs:', error);
+            }
+        }
+
+        // Log function
+        function addToLog(message) {
+            try {
+                var logContent = document.getElementById('log-content');
+                var entry = document.createElement('p');
+                entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                logContent.appendChild(entry);
+                logContent.scrollTo({ top: logContent.scrollHeight, behavior: 'smooth' });
+            } catch (error) {
+                console.error('Error adding to log:', error);
+            }
+        }
+
+        // Format time as MM:SS
+        function formatTime(seconds) {
+            try {
+                const minutes = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } catch (error) {
+                console.error('Error formatting time:', error);
+                return '00:00';
+            }
+        }
+
+        // Start game
+        function startGame() {
+            try {
+                var introModal = document.getElementById('intro-modal');
+                introModal.style.display = 'none';
+                player.startTime = Date.now();
+                playBackgroundAudio();
+                assignIOCs();
+                addToLog('Game started. You are at the Firewall. Objective: Prevent the attacker from compromising the File Server for 5 minutes.');
+                addToLog('You have 30 seconds to prepare before the attacker begins. Left-click nodes to scan for IOCs (costs 5 points, earns 10 if found, takes 5 seconds, turns bright neon blue), harden servers to prevent exploits (costs 10 points, earns 20, takes 10 seconds, turns green; File Server takes 30 seconds and fails), or isolate compromised nodes (costs 15 points, earns 30, instant, turns gray). Start by scanning internal nodes (6–15, 17).');
+                addToLog(`Initial points: ${player.points}.`);
+                // Reveal internal network
+                nodes.update([
+                    { id: 6, hidden: false, label: 'Domain Controller 1' },
+                    { id: 7, hidden: false, label: 'Domain Controller 2' },
+                    { id: 8, hidden: false, label: 'File Server' },
+                    { id: 9, hidden: false, label: 'HR Web Server' },
+                    { id: 10, hidden: false, label: 'HR Database Server' },
+                    { id: 11, hidden: false, label: 'ERP' },
+                    { id: 12, hidden: false, label: 'CRM' },
+                    { id: 13, hidden: false, label: 'Workstation' },
+                    { id: 14, hidden: false, label: 'IT Admin Machine' },
+                    { id: 15, hidden: false, label: 'Backup Server' },
+                    { id: 17, hidden: false, label: 'Hypervisor' }
+                ]);
+                edges.update([
+                    { id: '5-6', hidden: false },
+                    { id: '5-7', hidden: false },
+                    { id: '5-8', hidden: false },
+                    { id: '5-9', hidden: false },
+                    { id: '5-11', hidden: false },
+                    { id: '5-12', hidden: false },
+                    { id: '5-13', hidden: false },
+                    { id: '5-14', hidden: false },
+                    { id: '5-15', hidden: false },
+                    { id: '9-10', hidden: false },
+                    { id: '14-17', hidden: false }
+                ]);
+                network.fit();
+                // Start attacker after 30 seconds
+                setTimeout(startAttacker, attacker.actionDelay);
+                // Check for win condition
+                setTimeout(checkWinCondition, player.gameDuration * 1000);
+            } catch (error) {
+                console.error('Error starting game:', error);
+                addToLog('Failed to start game due to an error.');
+            }
+        }
+
+        // Attacker logic
+        function startAttacker() {
+            try {
+                addToLog('Attacker has begun their assault from the Internet!');
+                performAttackerAction();
+            } catch (error) {
+                console.error('Error starting attacker:', error);
+                addToLog('Attacker failed to start due to an error.');
+            }
+        }
+
+        function performAttackerAction() {
+            try {
+                if (attacker.compromisedNodes.includes(8)) return; // Stop if File Server is compromised
+                const reachableNodes = attacker.reachableNodes.filter(id => {
+                    const node = nodes.get(id);
+                    return !node.hardened && !node.isolated && !node.compromised;
+                });
+                if (reachableNodes.length === 0) {
+                    addToLog('Attacker has no reachable nodes to target. You win!');
+                    showWinModal();
+                    return;
+                }
+                const targetId = reachableNodes[Math.floor(Math.random() * reachableNodes.length)];
+                const node = nodes.get(targetId);
+                let action = 'scan';
+                if (attacker.scannedNodes.includes(targetId)) {
+                    action = Math.random() < 0.7 ? 'exploit' : 'scan';
+                }
+                switch (action) {
+                    case 'scan':
+                        attacker.scannedNodes.push(targetId);
+                        nodes.update({ id: targetId, label: node.originalLabel, color: { background: '#00FFFF', border: '#00CCFF' } });
+                        addToLog(`Attacker scanned ${node.originalLabel} (Node ${targetId}).`);
+                        break;
+                    case 'exploit':
+                        if (node.required_tool && !attacker.tools.includes(node.required_tool)) {
+                            addToLog(`Attacker failed to exploit ${node.originalLabel} (Node ${targetId}): Missing ${node.required_tool}.`);
+                            return;
+                        }
+                        node.compromised = true;
+                        attacker.compromisedNodes.push(targetId);
+                        nodes.update({ id: targetId, color: { background: '#FF0000', border: '#FF3333' } });
+                        applyNodeGlow(targetId, '#FF0000');
+                        if (node.contains_tools && node.contains_tools.length > 0) {
+                            attacker.tools = attacker.tools.concat(node.contains_tools);
+                            addToLog(`Attacker exploited ${node.originalLabel} (Node ${targetId}) and gained: ${node.contains_tools.join(', ')}.`);
+                        } else {
+                            addToLog(`Attacker exploited ${node.originalLabel} (Node ${targetId}).`);
+                        }
+                        updateAttackerReachableNodes(targetId);
+                        if (targetId === 4) {
+                            nodes.update([
+                                { id: 2, hidden: false, label: 'Web Server' },
+                                { id: 3, hidden: false, label: 'Email Server' },
+                                { id: 16, hidden: false, label: 'Helpdesk' }
+                            ]);
+                            edges.update([
+                                { id: '1-2', hidden: false },
+                                { id: '1-3', hidden: false },
+                                { id: '1-16', hidden: false },
+                                { id: '2-5', hidden: false },
+                                { id: '3-5', hidden: false },
+                                { id: '4-5', hidden: false }
+                            ]);
+                            attacker.reachableNodes.push(2, 3, 16);
+                            addToLog('Attacker compromised VPN Server, revealing DMZ nodes.');
+                        }
+                        if (targetId === 8) {
+                            showLoseModal();
+                            return;
+                        }
+                        break;
+                }
+                const nextActionDelay = attacker.actionIntervalMin + Math.random() * (attacker.actionIntervalMax - attacker.actionIntervalMin);
+                setTimeout(performAttackerAction, nextActionDelay);
+            } catch (error) {
+                console.error('Error in attacker action:', error);
+                addToLog('Attacker action failed due to an error.');
+            }
+        }
+
+        function updateAttackerReachableNodes(nodeId) {
+            try {
+                const newReachable = edges.get().filter(edge =>
+                    edge.from === nodeId || edge.to === nodeId
+                ).map(edge =>
+                    edge.from === nodeId ? edge.to : edge.from
+                ).filter(id => !attacker.compromisedNodes.includes(id) && !nodes.get(id).isolated && !nodes.get(id).hidden);
+                attacker.reachableNodes = [...new Set([...attacker.reachableNodes, ...newReachable])];
+            } catch (error) {
+                console.error('Error updating attacker reachable nodes:', error);
+            }
+        }
+
+        // Modal displays
+        function showWinModal() {
+            try {
+                var modal = document.getElementById('win-modal');
+                var timeDisplay = document.getElementById('time-survived');
+                var pointsDisplay = document.getElementById('points');
+                var tweetButton = document.getElementById('tweet-button');
+                const timeSurvived = (Date.now() - player.startTime) / 1000;
+                timeDisplay.textContent = `Time Survived: ${formatTime(timeSurvived)}`;
+                pointsDisplay.textContent = `Defense Points: ${player.points.toLocaleString()}`;
+                const tweetText = `I defended the NET! Survived: ${formatTime(timeSurvived)}, Points: ${player.points.toLocaleString()}! Play here: https://mr-r3b00t.github.io/defend_the_net/ #Cybersecurity #game`;
+                const tweetUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+                tweetButton.onclick = () => window.open(tweetUrl, '_blank');
+                modal.style.display = 'flex';
+                backgroundAudio.pause();
+            } catch (error) {
+                console.error('Error showing win modal:', error);
+                addToLog('Failed to show win modal due to an error.');
+            }
+        }
+
+        function showLoseModal() {
+            try {
+                var modal = document.getElementById('lose-modal');
+                var timeDisplay = document.getElementById('lose-time-survived');
+                var pointsDisplay = document.getElementById('lose-points');
+                var tweetButton = document.getElementById('lose-tweet-button');
+                const timeSurvived = (Date.now() - player.startTime) / 1000;
+                timeDisplay.textContent = `Time Survived: ${formatTime(timeSurvived)}`;
+                pointsDisplay.textContent = `Defense Points: ${player.points.toLocaleString()}`;
+                const tweetText = `I defended the NET but lost! Survived: ${formatTime(timeSurvived)}, Points: ${player.points.toLocaleString()}! Play here: https://mr-r3b00t.github.io/defend_the_net/ #Cybersecurity #game`;
+                const tweetUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+                tweetButton.onclick = () => window.open(tweetUrl, '_blank');
+                modal.style.display = 'flex';
+                backgroundAudio.pause();
+            } catch (error) {
+                console.error('Error showing lose modal:', error);
+                addToLog('Failed to show lose modal due to an error.');
+            }
+        }
+
+        // Restart game
+        function restartGame() {
+            try {
+                backgroundAudio.pause();
+                location.reload();
+            } catch (error) {
+                console.error('Error restarting game:', error);
+                addToLog('Failed to restart game due to an error.');
+            }
+        }
+
+        // Check win condition
+        function checkWinCondition() {
+            try {
+                if (!attacker.compromisedNodes.includes(8)) {
+                    showWinModal();
+                }
+            } catch (error) {
+                console.error('Error checking win condition:', error);
+                addToLog('Failed to check win condition due to an error.');
+            }
+        }
+
+        // Network status
+        function toggleNetworkStatus() {
+            try {
+                const status = nodes.get().map(node => {
+                    const state = node.compromised ? 'Compromised' : node.isolated ? 'Isolated' : node.hardened ? 'Hardened' : player.scannedNodes.includes(node.id) ? 'Scanned' : 'Unknown';
+                    return `Node ${node.id} (${node.originalLabel}): ${state}`;
+                });
+                addToLog('Network Status:');
+                status.forEach(s => addToLog(s));
+            } catch (error) {
+                console.error('Error toggling network status:', error);
+                addToLog('Failed to display network status due to an error.');
+            }
+        }
+
+        // Handle node click
+        let isMenuOpening = false;
+        network.on('click', function(params) {
+            try {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    const node = nodes.get(nodeId);
+                    if (node.actionInProgress) {
+                        addToLog(`Action in progress for ${node.originalLabel}. Please wait.`);
+                        return;
+                    }
+                    const nodeLabel = node.originalLabel;
+                    selectAudio.play().catch(error => {
+                        console.error('Select audio playback failed:', error);
+                    });
+                    if (nodeId === 1) return; // Ignore Internet
+                    showMenu(nodeId, params.event);
+                } else {
+                    closeMenu();
+                    network.unselectAll();
+                    network.selectNodes([]);
+                }
+            } catch (error) {
+                console.error('Error handling node click:', error);
+                addToLog('Failed to handle node click due to an error.');
+            }
+        });
+
+        document.addEventListener('click', function(event) {
+            try {
+                if (isMenuOpening) {
+                    isMenuOpening = false;
+                    return;
+                }
+                const menu = document.getElementById('menu');
+                if (menu.style.display === 'block' && !menu.contains(event.target)) {
+                    closeMenu();
+                    network.unselectAll();
+                    network.selectNodes([]);
+                }
+            } catch (error) {
+                console.error('Error handling document click:', error);
+                addToLog('Failed to handle document click due to an error.');
+            }
+        });
+
+        function showMenu(nodeId, event) {
+            try {
+                isMenuOpening = true;
+                const menu = document.getElementById('menu');
+                const hardenButton = document.getElementById('harden-button');
+                const isolateButton = document.getElementById('isolate-button');
+                const node = nodes.get(nodeId);
+
+                if (player.scannedNodes.includes(nodeId) && !node.hardened && !node.isolated && !node.compromised && node.exploitable) {
+                    hardenButton.classList.remove('hidden');
+                } else {
+                    hardenButton.classList.add('hidden');
+                }
+
+                if (player.scannedNodes.includes(nodeId) && node.compromised && !node.isolated) {
+                    isolateButton.classList.remove('hidden');
+                } else {
+                    isolateButton.classList.add('hidden');
+                }
+
+                menu.style.left = '10px';
+                menu.style.top = '10px';
+                menu.style.display = 'block';
+                menu.dataset.nodeId = nodeId;
+                setTimeout(() => { isMenuOpening = false; }, 0);
+            } catch (error) {
+                console.error('Error showing menu:', error);
+                addToLog('Failed to show menu due to an error.');
+            }
+        }
+
+        function closeMenu() {
+            try {
+                const menu = document.getElementById('menu');
+                if (menu.style.display === 'block') {
+                    menu.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error closing menu:', error);
+                addToLog('Failed to close menu due to an error.');
+            }
+        }
+
+        function performAction(action) {
+            try {
+                const nodeId = parseInt(document.getElementById('menu').dataset.nodeId);
+                const node = nodes.get(nodeId);
+                let message = '';
+
+                if (node.actionInProgress) {
+                    message = `Action in progress for ${node.originalLabel}. Please wait.`;
+                    isolateAudio.play().catch(error => {
+                        console.error('Isolate audio playback failed:', error);
+                    });
+                    applyNodeGlow(nodeId, '#FFFF00');
+                    addToLog(message);
+                    closeMenu();
+                    return;
+                }
+
+                if (nodeId === 5 && action !== 'scan') {
+                    message = `The Firewall is already hardened and cannot be modified.`;
+                    isolateAudio.play().catch(error => {
+                        console.error('Isolate audio playback failed:', error);
+                    });
+                    applyNodeGlow(nodeId, '#FFFF00');
+                    addToLog(message);
+                    closeMenu();
+                    return;
+                }
+
+                switch (action) {
+                    case 'scan':
+                        if (!player.scannedNodes.includes(nodeId)) {
+                            if (player.points < 5) {
+                                message = `Insufficient points to scan ${node.originalLabel}. Need 5 points.`;
+                                isolateAudio.play().catch(error => {
+                                    console.error('Isolate audio playback failed:', error);
+                                });
+                                applyNodeGlow(nodeId, '#FFFF00');
+                                addToLog(message);
+                                closeMenu();
+                            } else {
+                                nodes.update({ id: nodeId, actionInProgress: true });
+                                message = `Scanning ${node.originalLabel}... (5 seconds)`;
+                                addToLog(message);
+                                closeMenu();
+                                setTimeout(() => {
+                                    try {
+                                        player.scannedNodes.push(nodeId);
+                                        player.points -= 5;
+                                        nodes.update({ id: nodeId, label: node.originalLabel, color: { background: '#00FFFF', border: '#00CCFF' }, actionInProgress: false });
+                                        scanAudio.play().catch(error => {
+                                            console.error('Scan audio playback failed:', error);
+                                        });
+                                        const foundIOCs = node.iocs.filter(ioc => !ioc.found);
+                                        if (foundIOCs.length > 0) {
+                                            foundIOCs.forEach(ioc => ioc.found = true);
+                                            player.points += 10;
+                                            applyNodeGlow(nodeId, '#FFFF00');
+                                            message = `Scan completed for ${node.originalLabel}. Found IOCs: ${foundIOCs.map(ioc => ioc.name).join(', ')}. (+10 points, -5 cost)`;
+                                            addToLog(`Earned 10 points for finding IOCs in ${node.originalLabel}. Total points: ${player.points}`);
+                                        } else {
+                                            applyNodeGlow(nodeId, '#00FF00');
+                                            message = `Scan completed for ${node.originalLabel}. No IOCs found. (-5 points)`;
+                                        }
+                                        addToLog(message);
+                                    } catch (error) {
+                                        console.error(`Error completing scan for node ${nodeId}:`, error);
+                                        addToLog(`Failed to complete scan for ${node.originalLabel} due to an error.`);
+                                        nodes.update({ id: nodeId, actionInProgress: false });
+                                    }
+                                }, 5000); // 5 seconds
+                            }
+                        } else {
+                            message = `${node.originalLabel} has already been scanned. IOCs: ${node.iocs.filter(ioc => ioc.found).map(ioc => ioc.name).join(', ') || 'None'}.`;
+                            isolateAudio.play().catch(error => {
+                                console.error('Isolate audio playback failed:', error);
+                            });
+                            applyNodeGlow(nodeId, '#FFFF00');
+                            addToLog(message);
+                            closeMenu();
+                        }
+                        break;
+                    case 'harden':
+                        if (!player.scannedNodes.includes(nodeId)) {
+                            message = `Cannot harden ${node.originalLabel}. Scan it first.`;
+                            isolateAudio.play().catch(error => {
+                                console.error('Isolate audio playback failed:', error);
+                            });
+                            applyNodeGlow(nodeId, '#FFFF00');
+                            addToLog(message);
+                            closeMenu();
+                        } else if (node.hardened) {
+                            message = `${node.originalLabel} is already hardened.`;
+                            isolateAudio.play().catch(error => {
+                                console.error('Isolate audio playback failed:', error);
+                            });
+                            applyNodeGlow(nodeId, '#FFFF00');
+                            addToLog(message);
+                            closeMenu();
+                        } else if (node.compromised) {
+                            message = `${node.originalLabel} is compromised and cannot be hardened. Isolate it instead.`;
+                            isolateAudio.play().catch(error => {
+                                console.error('Isolate audio playback failed:', error);
+                            });
+                            applyNodeGlow(nodeId, '#FFFF00');
+                            addToLog(message);
+                            closeMenu();
+                        } else if (player.points < 10) {
+                            message = `Insufficient points to harden ${node.originalLabel}. Need 10 points.`;
+                            isolateAudio.play().catch(error => {
+                                console.error('Isolate audio playback failed:', error);
+                            });
+                            applyNodeGlow(nodeId, '#FFFF00');
+                            addToLog(message);
+                            closeMenu();
+                        } else {
+                            nodes.update({ id: nodeId, actionInProgress: true });
+                            if (nodeId === 8) {
+                                message = `Hardening File Server... (30 seconds)`;
+                                addToLog(message);
+                                closeMenu();
+                                setTimeout(() => {
+                                    try {
+                                        isolateAudio.play().catch(error => {
+                                            console.error('Isolate audio playback failed:', error);
+                                        });
+                                        applyNodeGlow(nodeId, '#FFFF00');
+                                        message = `Hardening failed for File Server. Business denied the change.`;
+                                        addToLog(message);
+                                        nodes.update({ id: nodeId, actionInProgress: false });
+                                    } catch (error) {
+                                        console.error(`Error completing harden for File Server (node ${nodeId}):`, error);
+                                        addToLog(`Failed to complete hardening for File Server due to an error.`);
+                                        nodes.update({ id: nodeId, actionInProgress: false });
+                                    }
+                                }, 30000); // 30 seconds
+                            } else {
+                                message = `Hardening ${node.originalLabel}... (10 seconds)`;
+                                addToLog(message);
+                                closeMenu();
+                                setTimeout(() => {
+                                    try {
+                                        node.hardened = true;
+                                        player.points -= 10;
+                                        player.points += 20;
+                                        nodes.update({ id: nodeId, color: { background: '#00FF00', border: '#00CC00' }, actionInProgress: false });
+                                        hardenAudio.play().catch(error => {
+                                            console.error('Harden audio playback failed:', error);
+                                        });
+                                        applyNodeGlow(nodeId, '#00FF00');
+                                        message = `Hardening completed for ${node.originalLabel}. It is now resistant to exploits. (+20 points, -10 cost)`;
+                                        addToLog(`Earned 20 points for hardening ${node.originalLabel}. Total points: ${player.points}`);
+                                    } catch (error) {
+                                        console.error(`Error completing harden for node ${nodeId}:`, error);
+                                        addToLog(`Failed to complete hardening for ${node.originalLabel} due to an error.`);
+                                        nodes.update({ id: nodeId, actionInProgress: false });
+                                    }
+                                }, 10000); // 10 seconds
+                            }
+                        }
+                        break;
+                    case 'isolate':
+                        if (!player.scannedNodes.includes(nodeId)) {
+                            message = `Cannot isolate ${node.originalLabel}. Scan it first.`;
+                            isolateAudio.play().catch(error => {
+                                console.error('Isolate audio playback failed:', error);
+                            });
+                            applyNodeGlow(nodeId, '#FFFF00');
+                        } else if (node.isolated) {
+                            message = `${node.originalLabel} is already isolated.`;
+                            isolateAudio.play().catch(error => {
+                                console.error('Isolate audio playback failed:', error);
+                            });
+                            applyNodeGlow(nodeId, '#FFFF00');
+                        } else if (!node.compromised) {
+                            message = `${node.originalLabel} is not compromised and does not need isolation.`;
+                            isolateAudio.play().catch(error => {
+                                console.error('Isolate audio playback failed:', error);
+                            });
+                            applyNodeGlow(nodeId, '#FFFF00');
+                        } else if (player.points < 15) {
+                            message = `Insufficient points to isolate ${node.originalLabel}. Need 15 points.`;
+                            isolateAudio.play().catch(error => {
+                                console.error('Isolate audio playback failed:', error);
+                            });
+                            applyNodeGlow(nodeId, '#FFFF00');
+                        } else {
+                            node.isolated = true;
+                            player.points -= 15;
+                            player.points += 30;
+                            nodes.update({ id: nodeId, color: { background: '#CCCCCC', border: '#999999' } });
+                            isolateAudio.play().catch(error => {
+                                console.error('Isolate audio playback failed:', error);
+                            });
+                            applyNodeGlow(nodeId, '#CCCCCC');
+                            edges.update(edges.get().filter(edge => edge.from === nodeId || edge.to === nodeId).map(edge => ({ id: edge.id, hidden: true })));
+                            attacker.reachableNodes = attacker.reachableNodes.filter(id => id !== nodeId);
+                            message = `Isolated ${node.originalLabel}. It is disconnected from the network. (+30 points, -15 cost)`;
+                            addToLog(`Earned 30 points for isolating ${node.originalLabel}. Total points: ${player.points}`);
+                            closeMenu();
+                        }
+                        break;
+                }
+
+                if (action !== 'scan' && action !== 'harden') {
+                    addToLog(message);
+                    closeMenu();
+                }
+            } catch (error) {
+                console.error(`Error performing action ${action} on node ${nodeId}:`, error);
+                addToLog(`Failed to perform ${action} on ${node.originalLabel} due to an error.`);
+                nodes.update({ id: nodeId, actionInProgress: false });
+                closeMenu();
+            }
+        }
+    </script>
+</body>
+</html>
