@@ -1,1 +1,1 @@
-this folder is for game assets
+put assets in this folder
