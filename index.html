@@ -493,6 +493,18 @@
             }
         }
 
+        // Award 10 points every 10 seconds
+        let pointsInterval = null;
+        function awardPeriodicPoints() {
+            try {
+                player.points += 10;
+                addToLog(`Awarded 10 points for ongoing defense. Total points: ${player.points}.`);
+            } catch (error) {
+                console.error('Error awarding periodic points:', error);
+                addToLog('Failed to award periodic points due to an error.');
+            }
+        }
+
         // Start game
         function startGame() {
             try {
@@ -505,6 +517,8 @@
                 addToLog('Only the Firewall and Internet are visible. Scan the Firewall (costs 5 points, takes 5 seconds) to reveal DMZ and internal network nodes, with multiple routes to the File Server requiring multiple hops. You have 10 seconds to prepare before the attacker begins, then they act every 1.25–2.5 seconds. Attacker scans show nodes with a red border. Harden servers (costs 10 points, earns 20, takes 10 seconds, turns green; Firewall, File Server, and Helpdesk take 30 seconds and fail, with Helpdesk failing due to supplier contract scope). Isolate compromised nodes (costs 15 points, earns 30, instant, turns gray).');
                 addToLog(`Initial points: ${player.points}.`);
                 network.fit();
+                // Start awarding 10 points every 10 seconds
+                pointsInterval = setInterval(awardPeriodicPoints, 10000);
                 // Start attacker after 10 seconds
                 setTimeout(startAttacker, attacker.actionDelay);
                 // Check for win condition
@@ -642,6 +656,11 @@
         // Modal displays
         function showWinModal() {
             try {
+                // Clear the points interval
+                if (pointsInterval) {
+                    clearInterval(pointsInterval);
+                    pointsInterval = null;
+                }
                 var modal = document.getElementById('win-modal');
                 var timeDisplay = document.getElementById('time-survived');
                 var pointsDisplay = document.getElementById('points');
@@ -662,6 +681,11 @@
 
         function showLoseModal() {
             try {
+                // Clear the points interval
+                if (pointsInterval) {
+                    clearInterval(pointsInterval);
+                    pointsInterval = null;
+                }
                 var modal = document.getElementById('lose-modal');
                 var timeDisplay = document.getElementById('lose-time-survived');
                 var pointsDisplay = document.getElementById('lose-points');
@@ -684,6 +708,10 @@
         function restartGame() {
             try {
                 backgroundAudio.pause();
+                if (pointsInterval) {
+                    clearInterval(pointsInterval);
+                    pointsInterval = null;
+                }
                 location.reload();
             } catch (error) {
                 console.error('Error restarting game:', error);
